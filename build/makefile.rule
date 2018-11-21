@@ -1,0 +1,162 @@
+########################################################
+# Libary building command format: [r/d][d/s]
+# 	r - release version
+# 	d - debug version
+# 	d - dynamic lib
+# 	s - static lib
+#
+# Execute building command: [release,r/debug,d]
+# 
+# Extension command: install/clean
+#
+# reference:
+# http://bbs.chinaunix.net/thread-1692258-1-1.html
+########################################################	
+
+ifeq ($(OS),Windows_NT)
+ARCH 			:= win32
+MKDIR			:= mkdir
+SHARED_LIB_EXT	:= .dll
+STATIC_LIB_EXT	:= .lib
+EXE_EXT			:= .exe
+else ifeq ($(shell uname -s),Linux)
+ARCH 			:= unix
+MKDIR			:= mkdir -p
+SHARED_LIB_EXT	:= .so
+STATIC_LIB_EXT	:= .a
+EXE_EXT			:=
+else ifeq ($(shell uname -s),Darwin)
+ARCH 			:= macos
+MKDIR			:= mkdir -p
+SHARED_LIB_EXT	:= .dylib
+STATIC_LIB_EXT	:= .a
+EXE_EXT			:=
+endif
+
+########################################################	
+# General configurations:
+########################################################	
+# C Compiler : gcc/g++
+CC 				:= gcc
+CXX 			:= g++
+AR				:= ar rcs
+
+########################################################	
+# General configuration END
+########################################################	
+# header files directories
+#vpath = %.h ../include:../include/arch:../include/arch/$(ARCH)
+
+# include directories
+INCLUDE_DIR		:= $(foreach inc_dir, $(INC_DIR), -I$(inc_dir)) \
+					$(foreach inc_dir, $(EXTERN_INC_DIR), -I$(inc_dir))
+
+
+# source files with sub-dir
+SRCS			:= $(foreach src_dir, $(SRC_DIR), $(wildcard $(src_dir)/*.c))	\
+					$(foreach src_dir, $(SRC_DIR), $(wildcard $(src_dir)/*.cpp))
+
+LIBS_DIR		:= $(foreach lib_dir, $(EXTERN_LIBS_DIR), -L$(lib_dir))
+LIBS_DIR_D		:= $(foreach lib_dir, $(EXTERN_LIBS_DIR_D), -L$(lib_dir))
+
+STATIC_LIBS		:= $(foreach lib, $(EXTERN_LIBS_STATIC), -$(lib))		\
+					$(foreach lib, $(EXTERN_LIBS_STATIC_2), -$(lib))
+SHARE_LIBS		:= $(foreach lib, $(EXTERN_LIBS_SHARE), -l$(patsubst lib%,%,$(lib)))	\
+					$(foreach lib, $(EXTERN_LIBS_SHARE_2), -$(patsubst lib%,%,$(lib)))
+
+STATIC_LIBS_D	:= $(foreach lib, $(EXTERN_LIBS_STATIC_D), -l$(lib))	\
+					$(foreach lib, $(EXTERN_LIBS_STATIC_D_2), -$(lib))
+SHARE_LIBS_D	:= $(foreach lib, $(EXTERN_LIBS_SHARE_D), -l$(patsubst lib%,%,$(lib)))		\
+					$(foreach lib, $(EXTERN_LIBS_SHARE_D_2), -$(patsubst lib%,%,$(lib)))
+
+# compiling flags
+DBG_FLAGS		+= -D_DEBUG -g
+SHARED_CFLAGS	+= -fPIC
+CFLAGS 			+= -Wall
+CFLAGS_D 		+= -Wall
+
+# linking flags
+SHARED_LFLAGS	+= -shared
+LFLAGS 			+= 
+LFLAGS_D		+= 
+
+OBJ_FNAME_SURFIX =
+_O_OPT = -o
+LCMD = $(CC)
+ifeq ($(TARGET_TYPE), shared)
+CFLAGS 		+= $(SHARED_CFLAGS)
+LFLAGS 		+= $(SHARED_LFLAGS)
+CFLAGS_D 	+= $(SHARED_CFLAGS)
+LFLAGS_D 	+= $(SHARED_LFLAGS)
+OBJ_FNAME_SURFIX =_s
+else ifeq ($(TARGET_TYPE), static)
+LCMD = $(AR)
+_O_OPT = 
+
+LIBS_DIR		=
+LIBS_DIR_D		=
+STATIC_LIBS		=
+SHARE_LIBS		=
+STATIC_LIBS_D	=
+SHARE_LIBS_D	=
+endif
+
+# object files with sub-dir, compiled with source files
+OBJS_C 		:= $(patsubst $(SRC_ROOT)/%.c, $(INT_DIR)/%$(OBJ_FNAME_SURFIX).o, $(filter %.c, $(SRCS)))
+OBJS_C_D 	:= $(patsubst $(SRC_ROOT)/%.c, $(INT_DIR)/%$(OBJ_FNAME_SURFIX)_d.o, $(filter %.c, $(SRCS)))
+OBJS_CPP	:= $(patsubst $(SRC_ROOT)/%.cpp, $(INT_DIR)/%$(OBJ_FNAME_SURFIX).o, $(filter %.cpp, $(SRCS)))
+OBJS_CPP_D	:= $(patsubst $(SRC_ROOT)/%.cpp, $(INT_DIR)/%$(OBJ_FNAME_SURFIX)_d.o, $(filter %.cpp, $(SRCS)))
+
+OBJS_DIR	:= $(patsubst $(SRC_ROOT)/%, $(INT_DIR)/%, $(SRC_DIR))
+
+
+################################################################################
+# Rules for Compiling & Linking 
+################################################################################
+default : release debug
+all : release debug
+.PHONY : default all
+release : $(OUTPUT_FILE) 
+debug : $(OUTPUT_FILE_D)
+
+$(OUTPUT_FILE) : $(OBJS_C) $(OBJS_CPP) | $(OUT_DIR)
+	$(LCMD) $(_O_OPT) $@ $^ $(LFLAGS) $(LIBS_DIR) $(SHARE_LIBS) $(STATIC_LIBS)
+$(OUTPUT_FILE_D) : $(OBJS_C_D) $(OBJS_CPP_D) | $(OUT_DIR_D)
+	$(LCMD) $(_O_OPT) $@ $^ $(LFLAGS_D) $(LIBS_DIR_D) $(SHARE_LIBS_D) $(STATIC_LIBS_D)
+
+$(OBJS_C) : $(INT_DIR)/%$(OBJ_FNAME_SURFIX).o : $(SRC_ROOT)/%.c | $(OBJS_DIR)
+	$(CC) -c $< $(INCLUDE_DIR) $(DEFINES) $(CFLAGS) -o $@
+$(OBJS_C_D) : $(INT_DIR)/%$(OBJ_FNAME_SURFIX)_d.o : $(SRC_ROOT)/%.c | $(OBJS_DIR)
+	$(CC) -c $< $(INCLUDE_DIR) $(DEFINES) $(CFLAGS_D) $(DBG_FLAGS) -o $@
+
+$(OBJS_CPP) : $(INT_DIR)/%$(OBJ_FNAME_SURFIX).o : $(SRC_ROOT)/%.cpp | $(OBJS_DIR)
+	$(CXX) -c $< $(INCLUDE_DIR) $(DEFINES) $(CFLAGS) -o $@
+$(OBJS_CPP_D) : $(INT_DIR)/%$(OBJ_FNAME_SURFIX)_d.o : $(SRC_ROOT)/%.cpp | $(OBJS_DIR)
+	$(CXX) -c $< $(INCLUDE_DIR) $(DEFINES) $(CFLAGS_D) $(DBG_FLAGS) -o $@
+
+################################################################################
+# Rules for making directory
+################################################################################
+$(OUT_DIR) :
+	$(MKDIR) $@
+
+$(OUT_DIR_D) :
+	$(MKDIR) $@
+
+$(OBJS_DIR) :
+	$(MKDIR) $@
+
+test :
+	@echo $(OBJ_FNAME_SURFIX)
+	@echo $(TARGET_TYPE)
+	@echo $(OUTPUT_FILE)
+	@echo $(OBJS_C)
+	@echo $(OBJS_C_D)
+	@echo $(INCLUDE_DIR)
+
+##############################################
+# clean ...
+##############################################
+clean:
+	@echo [`date "+%Y-%m-%d %H:%M:%S"`] clean $<
+	@rm -f $(OBJS_C) $(OBJS_CPP) $(OBJS_C_D) $(OBJS_CPP_D) $(OUTPUT_FILE) $(OUTPUT_FILE_D)

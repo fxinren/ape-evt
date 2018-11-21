@@ -1,5 +1,5 @@
 /************************************************************************************
-* evmdl_internal.h : header file
+* evbase.h : header file
 *
 * Built-in data type Definitions header
 *
@@ -21,10 +21,8 @@
 *
 ************************************************************************************/
 
-#if !defined(__APE_EVMDL_INTERNAL_H__)
-#define __APE_EVMDL_INTERNAL_H__
-
-#include "ape_evmdl.h"
+#if !defined(__APE_EVBASE_INTERNAL_H__)
+#define __APE_EVBASE_INTERNAL_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,28 +32,14 @@ extern "C" {
 /*		Event Module											*/
 /****************************************************************/
 
-typedef struct _tag_evmdlcb_t {
-	union {
-		int (*evcb_callback)( ape_evfd_t, ape_event_t, void* );
-		int (*evcb_selfcb)( struct _tag_evmdlcb_t*, void* );
-		int (*evcb_evfinalize)( ape_evmdl_t*, void* );
-		int (*evcb_cbfinalize)( struct _tag_evmdlcb_t*, void* );
-	};
-	void *arg;
-} evmdlcb_t;
-
-typedef struct _tag_evbase_t ape_evbase_t;
-struct _tag_event_module_t {
-	evmdlcb_t		callback;
-	ape_evbase_t	*base;
-	ape_event_t		events;
-	ape_evfd_t		fd;
-	int				interval;
-};
-
+typedef struct _tag_evbase_t {
+	int				capacity;
+	int				count;
+	ape_os_thread_t	tid;
+} ape_evbase_t;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __APE_EVMDL_INTERNAL_H__ */
+#endif /* __APE_EVBASE_INTERNAL_H__ */

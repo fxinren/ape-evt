@@ -25,7 +25,7 @@
 #define __APE_EVT_H__
 
 #include "ape_evmdl.h"
-#include "ape_evbase.h"
+//#include "ape_evbase.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,41 +39,28 @@ extern "C" {
 
 #define ape_evfd_isvalid(fd)        ((fd)!=_APE_EVFD_INVALID_)
 
+#define APE_EV_NONE				0x00
+#define APE_EV_TIMEOUT			0x01
+#define APE_EV_READ				0x02
+#define APE_EV_WRITE			0x04
+#define APE_EV_SIG				0x08
+
+#define APE_EV_PERSIST			0x10
+#define APE_EV_ET				0x11
+
 /****************************************************************/
 /*		Event Data												*/
 /****************************************************************/
-typedef ape_evfd_t			ape_evfd_t;
-typedef ape_event_t			ape_event_t;
+typedef ape_evfd_t					ape_evfd_t;
+typedef ape_event_t					ape_event_t;
 
-typedef enum _tag_ape_event_module_category_e {
-	APE_EVCAT_NONE = 0,
-	APE_EVCAT_IO,
-	APE_EVCAT_SIG,
-	APE_EVCAT_TIMER,
+typedef ape_evcat_e					ape_evcat_e;
+typedef ape_evpri_e					ape_evpri_e;
+typedef ape_evstat_e				ape_evstat_e;
 
-	APE_EVCAT_END
-} ape_evcat_e;
-#define ape_evmdl_isvalid_cat(cat)						((cat)>APE_EVCAT_NONE && (cat)<APE_EVCAT_END)
+typedef struct ape_evmdl_t			ape_evmdl_t;
 
-typedef enum _tag_ape_evmdl_priority_e {
-	APE_EVPRIO_0 = 0,
-
-	APE_EVPRIO_INVALID
-} ape_evpri_e;
-
-typedef enum _tag_ape_event_state_e {
-	/* fd closed. */
-	APE_EVSTAT_INVALID = 0, /* event fd is not valid. */
-	/* Shutdown */ /* fd opened. */
-	APE_EVSTAT_STOPPED, /* Do NOT respond events any more. But data members remains valid. */
-	/* Registered. */
-	APE_EVSTAT_INIT, /* Initialized. Associated with a Reactor. */
-	/* event_add() */
-	APE_EVSTAT_PENDING, /* Pending state. */
-	APE_EVSTAT_ACTIVE, /* Active state. */
-
-	APE_EVSTAT_END
-} ape_evstat_e;
+typedef struct ape_evbase_t			ape_evbase_t;
 
 // ape_evmdl_ctl(): ops values
 enum {
@@ -84,10 +71,6 @@ enum {
 	APE_EVCTL_END
 };
 
-typedef struct _tag_event_module_t	ape_evmdl_t;
-
-typedef struct _tag_event_base_t	ape_evbase_t;
-
 // event module callback handler
 typedef int (*ape_evhandler_t)( ape_evfd_t fd, ape_event_t events, void *arg );
 
@@ -95,16 +78,26 @@ typedef int (*ape_evhandler_t)( ape_evfd_t fd, ape_event_t events, void *arg );
 /*		Event API												*/
 /****************************************************************/
 // event module
-APE_DECLARE(ape_evmdl_t*)	ape_evmdl_new( ape_evmdl_cat_e cat, ape_evbase_t *base, ape_evhandler_t cb, void *arg );
+APE_DECLARE(ape_evmdl_t*)	ape_evmdl_new( ape_evcat_e cat, ape_evbase_t *base, ape_evhandler_t cb, void *arg );
 // do NOT use ape_evmdl_free
-APE_DECLARE(int)		ape_evmdl_assign( ape_evmdl_t* evmdl, ape_evmdl_cat_e cat, ape_evbase_t *base, ape_evhandler_t cb, void *arg );
+APE_DECLARE(int)		ape_evmdl_assign( ape_evmdl_t *evmdl, ape_evcat_e cat, ape_evbase_t *base, ape_evhandler_t cb, void *arg );
 
 APE_DECLARE(int)			ape_evmdl_free( ape_evmdl_t *evmdl );
 
+APE_DECLARE(int)			ape_evmdl_setfd( ape_evmdl_t *evmdl, ape_evfd_t fd );
+APE_DECLARE(ape_evfd_t)		ape_evmdl_fd( ape_evmdl_t *evmdl );
+
 APE_DECLARE(int)			ape_evmdl_ctl( ape_evmdl_t *evmdl, int ops, ape_event_t events );
+APE_DECLARE(ape_event_t)	ape_evmdl_events( ape_evmdl_t *evmdl );
 
 APE_DECLARE(int)			ape_evmdl_add( ape_evmdl_t *evmdl, int timeout );
 APE_DECLARE(int)			ape_evmdl_del( ape_evmdl_t *evmdl );
+
+APE_DECLARE(int)			ape_evmdl_set_persist( ape_evmdl_t *evmdl, int on );
+APE_DECLARE(int)			ape_evmdl_is_persist( ape_evmdl_t *evmdl );
+
+APE_DECLARE(int)			ape_evmdl_set_etmode( ape_evmdl_t *evmdl, int on );
+APE_DECLARE(int)			ape_evmdl_is_etmode( ape_evmdl_t *evmdl );
 
 APE_DECLARE(ape_size_t)		ape_evmdl_get_size(void);
 

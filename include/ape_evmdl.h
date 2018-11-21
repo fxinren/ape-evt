@@ -25,6 +25,7 @@
 #define __APE_EVMDL_H__
 
 #include "ape.h"
+#include "ape_file.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,24 +35,8 @@ extern "C" {
 		Basic built-in Data Types
 ************************************************************/
 
-typedef ape_os_fd_t			ape_evfd_t;
+typedef ape_os_file_t		ape_evfd_t;
 typedef ape_ushort_t		ape_event_t;
-
-/******************************************************************
-	System Predefined Reactor Event:
-		EV_TIMEOUT, EV_READ, EV_WRITE, EV_SIGNAL, EV_PERSIST, EV_ET 
-******************************************************************/
-#define _APE_EV_TIMEOUT			0x01
-#define _APE_EV_READ			0x02
-#define _APE_EV_WRITE			0x04	
-#define _APE_EV_SIGNAL			0x08
-
-#define _APE_EV_PERSIST			0x10
-#define _APE_EV_ET				0x11
-
-/****************************************************************/
-/*		Event Module											*/
-/****************************************************************/
 
 typedef enum _tag_ape_event_module_category_e {
 	APE_EVCAT_NONE = 0,
@@ -83,51 +68,14 @@ typedef enum _tag_ape_event_state_e {
 	APE_EVSTAT_END
 } ape_evstat_e;
 
-#define ape_evmdl_isactive(evmdlp)						((evmdlp)->reactorp!=NULL)
+/******************************************************************
+	System Predefined Reactor Event:
+		EV_TIMEOUT, EV_READ, EV_WRITE, EV_SIGNAL, EV_PERSIST, EV_ET 
+******************************************************************/
 
-#define ape_evmdl_get_cat(evmdlp)						(evmdlp)->cat
-
-#define ape_evmdl_get_fd(evmdlp)						(evmdlp)->fd
-
-#define ape_evmdl_get_events(evmdlp)					(((evmdlp)->evnets)&(~(APE_EV_PERSIST|APE_EV_ET)))
-#define ape_evmdl_add_events(evmdlp, events)			do {											\
-															if ((evmdlp)->cat == APE_EVCAT_IO ) {		\
-																((evmdlp)->events |= (events));			\
-															}											\
-														} while (0)
-#define ape_evmdl_mod_events(evmdlp, events)			do {											\
-															if ((evmdlp)->cat == APE_EVCAT_IO ) {		\
-																((evmdlp)->events = events |((evmdlp)->events&(APE_EV_PERSIST|APE_EV_ET)));	\
-															}											\
-														} while (0)
-#define ape_evmdl_del_events(evmdlp, events)			do {											\
-															if ((evmdlp)->cat == APE_EVCAT_IO ) {		\
-																((evmdlp)->events &= (~(events)));		\
-															}											\
-														} while (0)	
-
-#define ape_evmdl_is_persist(evmdlp)					((evmdlp)->events&APE_EV_PERSIST)?1:0
-#define ape_evmdl_set_persist(evmdlp, on)			do {													\
-															if ( on ) {										\
-																ape_evmdl_add_events(APE_EV_PERSIST);		\
-															} else {										\
-																ape_evmdl_del_events(APE_EV_PERSIST);		\
-															}												\
-														} while (0)
-
-/* Edge Trigger if os supports this feature. */
-#define ape_evmdl_is_etmode(evmdlp)					((evmdlp)->events&APE_EV_ET)?1:0
-#define ape_evmdl_set_etmode(evmdlp, on)				do {										\
-															if ( on ) {								\
-																ape_evmdl_add_events(APE_EV_ET);	\
-															} else {								\
-																ape_evmdl_del_events(APE_EV_ET);	\
-															}										\
-														} while (0)
-
-
-#define ape_evmdl_get_interval(evmdlp)				(evmdlp)->interval
-
+/****************************************************************/
+/*		Event Module											*/
+/****************************************************************/
 #ifdef __cplusplus
 }
 #endif
