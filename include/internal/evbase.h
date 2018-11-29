@@ -24,6 +24,8 @@
 #if !defined(__APE_EVBASE_INTERNAL_H__)
 #define __APE_EVBASE_INTERNAL_H__
 
+#include "internal/evmdl.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -32,9 +34,22 @@ extern "C" {
 /*		Event Module											*/
 /****************************************************************/
 
-typedef struct _tag_evbase_t {
+enum base_exit_code_t {
+	GOT_NONE = 0X00,
+	GOT_TERM = 0X01,
+	GOT_BREAK = 0X02,
+}
+
+//for stop flag
+#define GOT_TERM			0x01
+#define GOT_BREAK			0x02
+
+typedef struct ape_evbase_t {
 	int				capacity;
 	int				count;
+
+	ape_byte_t		stop_flag;
+
 	ape_os_thread_t	tid;
 } ape_evbase_t;
 

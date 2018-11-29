@@ -38,16 +38,6 @@ extern "C" {
 typedef ape_os_file_t		ape_evfd_t;
 typedef ape_ushort_t		ape_event_t;
 
-typedef enum _tag_ape_event_module_category_e {
-	APE_EVCAT_NONE = 0,
-	APE_EVCAT_IO,
-	APE_EVCAT_SIG,
-	APE_EVCAT_TIMER,
-
-	APE_EVCAT_END
-} ape_evcat_e;
-#define ape_evmdl_isvalid_cat(cat)						((cat)>APE_EVCAT_NONE && (cat)<APE_EVCAT_END)
-
 typedef enum _tag_ape_evmdl_priority_e {
 	APE_EVPRIO_0 = 0,
 

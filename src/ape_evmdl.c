@@ -15,24 +15,34 @@
 #include "ape_mem.h"
 #include "ape_threadproc.h"
 #include "ape_evmdl.h"
-#include "internal/evmdl.h"
+//#include "internal/evmdl.h"
+#include "internal/evbase.h"
 #include "ape_evt.h"
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 	
+#define APE_EV_PERSIST        0x20
+#define APE_EV_ET             0x40
+
 static int _is_evbase_thread( struct ape_evbase_t *base );
 
-#define IO_EVT_SET			(APE_EV_READ|APE_EV_WRITE|APE_EV_TIMEOUT)
+#define IO_EVT_SET			(APE_EV_READ|APE_EV_WRITE|APE_EV_CLOSED|APE_EV_TIMEOUT)
 #define SIG_EVT_SET			(APE_EV_SIG|APE_EV_TIMEOUT)
 #define TIMER_EVT_SET		(APE_EV_TIMEOUT)
+
+#define _is_sigevent(events)		((events)&APE_EV_SIG)
+#define _is_ioevent(events)			((events)&(APE_EV_READ|APE_EV_WRITE|APE_EV_CLOSED))
+
+#define _is_persist(events)			((events)&(APE_EV_PERSIST))
+#define _is_et(events)				((events)&(APE_EV_ET))
 
 #if defined(__cplusplus)
 }
 #endif
 
-APE_DECLARE(struct ape_evmdl_t*) ape_evmdl_new( ape_evcat_e cat, struct ape_evbase_t *base, ape_evhandler_t cb, void *arg ) {
+APE_DECLARE(struct ape_evmdl_t*) ape_evmdl_new( ape_evbase_t *base, ape_evfd_t fd, ape_event_t events, ape_evhandler_t cb, void *arg ) {
 	struct ape_evmdl_t *evmdl = NULL;
 
 	evmdl = ape_malloc( sizeof(struct ape_evmdl_t) );
@@ -40,43 +50,12 @@ APE_DECLARE(struct ape_evmdl_t*) ape_evmdl_new( ape_evcat_e cat, struct ape_evba
 		return NULL;
 	}
 	
-	if ( ape_evmdl_assign(evmdl, cat, base, cb, arg) ) {
+	if ( ape_evmdl_assign(evmdl, base, fd, events, cb, arg) ) {
 		ape_free( evmdl );
 		evmdl = NULL;
 	}
 
 	return evmdl;
-}
-
-// do NOT use ape_evmdl_free
-APE_DECLARE(int) ape_evmdl_assign( struct ape_evmdl_t *evmdl, ape_evcat_e cat, struct ape_evbase_t *base, ape_evhandler_t cb, void *arg ) {
-	int ret = 0;
-	ape_event_t events = APE_EV_NONE;
-
-	switch ( cat ) {
-	case APE_EVCAT_IO:
-		break;
-	case APE_EVCAT_SIG:
-		events = APE_EV_SIG;
-		break;
-	case APE_EVCAT_TIMER:
-		events = APE_EV_TIMEOUT;
-		evmdl->fd = _APE_EVFD_INVALID_;
-		break;
-	default:
-		ret = -1;
-		break;
-	}
-
-	if ( ret == 0 ) {
-		evmdl->base = base;
-		evmdl->cat = cat;
-		evmdl->events = events;
-		evmdl->cb.evcb_callback = cb;
-		evmdl->cb.arg = arg;
-	}
-
-	return ret;
 }
 
 APE_DECLARE(int) ape_evmdl_free( struct ape_evmdl_t *evmdl ) {
@@ -87,12 +66,46 @@ APE_DECLARE(int) ape_evmdl_free( struct ape_evmdl_t *evmdl ) {
 	return 0;
 }
 
-APE_DECLARE(int) ape_evmdl_setfd( struct ape_evmdl_t *evmdl, ape_evfd_t fd ) {
-	if ( evmdl->cat == APE_EVCAT_TIMER ) {
+// do NOT use ape_evmdl_free
+APE_DECLARE(int) ape_evmdl_assign( ape_evmdl_t *evmdl, ape_evbase_t *base, ape_evfd_t fd, ape_event_t events, ape_evhandler_t cb, void *arg ) {
+	int ret = 0;
+
+	if ( _is_sigevent(events) ) {
+		if ( _is_ioevent(events) ) {
+			// EV_SIGNAL is not compatible with EV_READ, EV_WRITE or EV_CLOSED
+			ret = -1;
+			goto lbl_err:
+		}
+	}
+
+	evmdl->base = base;
+	evmdl->fd = fd;
+
+	evmdl->events = events;
+
+	evmdl->cb.callback = cb;
+	evmdl->cb.arg = arg;
+
+lbl_err:
+
+	return ret;
+}
+
+APE_DECLARE(int) ape_evtsig_init( ape_evmdl_t *evmdl, ape_evbase_t *base, ape_evfd_t signum, ape_evhandler_t cb, void *arg ) {
+
+	if ( ape_evmdl_assign(evmdl, base, fd, APE_EV_SIG|APE_EV_PERSIST, cb, arg) ) {
 		return -1;
 	}
 
-	evmdl->fd = fd;
+	return 0;
+}
+
+APE_DECLARE(int) ape_evtimer_init( ape_evmdl_t *evmdl, ape_evbase_t *base, ape_evhandler_t cb, void *arg ) {
+	
+	if ( ape_evmdl_assign(evmdl, base, fd, APE_EV_TIMER, cb, arg) ) {
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -103,21 +116,6 @@ APE_DECLARE(ape_evfd_t) ape_evmdl_fd( struct ape_evmdl_t *evmdl ) {
 APE_DECLARE(int) ape_evmdl_ctl( struct ape_evmdl_t *evmdl, int ops, ape_event_t events ) {
 	int ret = 0;
 	int _events = 0;
-
-	switch ( evmdl->cat ) {
-	case APE_EVCAT_IO:
-		_events = (events & IO_EVT_SET);
-		break;
-	case APE_EVCAT_SIG:
-		_events = (events & SIG_EVT_SET);
-		break;
-	case APE_EVCAT_TIMER:
-		_events = (events & TIMER_EVT_SET);
-		break;
-	default:
-		ret = -1;
-		break;
-	}
 
 	if ( ret==-1 || _events!=events ) {
 		return -1;
@@ -145,12 +143,12 @@ APE_DECLARE(int) ape_evmdl_ctl( struct ape_evmdl_t *evmdl, int ops, ape_event_t 
 	return ret;
 }
 
-APE_DECLARE(int) ape_evmdl_add( struct ape_evmdl_t *evmdl, int timeout ) {
+APE_DECLARE(int) ape_evmdl_register( struct ape_evmdl_t *evmdl, int timeout ) {
 	struct ape_evbase_t *base = NULL;
 	return 0;
 }
 
-APE_DECLARE(int) ape_evmdl_del( struct ape_evmdl_t *evmdl ) {
+APE_DECLARE(int) ape_evmdl_unregister( struct ape_evmdl_t *evmdl ) {
 	return 0;
 }
 
@@ -159,7 +157,7 @@ APE_DECLARE(ape_size_t) ape_evmdl_get_size(void) {
 }
 
 APE_DECLARE(ape_event_t) ape_evmdl_events( struct ape_evmdl_t *evmdl ) {
-	return (evmdl->events & (APE_EV_PERSIST|APE_EV_ET));
+	return (evmdl->events & (~(ape_event_t)(APE_EV_PERSIST|APE_EV_ET)));
 }
 
 APE_DECLARE(int) ape_evmdl_set_persist( struct ape_evmdl_t *evmdl, int on ) {

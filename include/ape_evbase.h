@@ -1,5 +1,5 @@
 /************************************************************************************
-* evmdl.h : header file
+* ape_evbase.h : header file
 *
 * Built-in data type Definitions header
 *
@@ -21,41 +21,31 @@
 *
 ************************************************************************************/
 
-#if !defined(__APE_EVMDL_INTERNAL_H__)
-#define __APE_EVMDL_INTERNAL_H__
+#if !defined(__APE_EVBASE_H__)
+#define __APE_EVBASE_H__
+
+#include "ape.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/************************************************************
+		Basic built-in Data Types
+************************************************************/
+
+typedef struct ape_evbase_t			ape_evbase_t;
+
+/******************************************************************
+	System Predefined Reactor Event:
+		EV_TIMEOUT, EV_READ, EV_WRITE, EV_SIGNAL, EV_PERSIST, EV_ET 
+******************************************************************/
+
 /****************************************************************/
 /*		Event Module											*/
 /****************************************************************/
-
-struct ape_evmdl_t;
-struct evmdlcb_t {
-	union {
-		int (*callback)( ape_evfd_t, ape_event_t, void* );
-		int (*selfcb)( struct evmdlcb_t*, void* );
-		int (*evfinalize)( struct ape_evmdl_t*, void* );
-		int (*cbfinalize)( struct evmdlcb_t*, void* );
-	};
-	void *arg;
-};
-
-struct ape_evbase_t;
-typedef struct ape_evmdl_t {
-	struct evmdlcb_t	cb;
-	struct ape_evbase_t	*base;
-	ape_event_t			events;
-	ape_evfd_t			fd;
-	int					timeout;
-	int					running_loop;
-} ape_evmdl_t;
-
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __APE_EVMDL_INTERNAL_H__ */
+#endif /*__APE_EVMDL_H__*/
